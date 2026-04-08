@@ -1307,12 +1307,22 @@ body.editing [data-ed]:empty:before{
   .qr-float img{width:64px;height:64px;}
 }
 
+
+/* Edit mode logo indicator */
+.nav-logo{transition:outline .2s;}
+body.editing .nav-logo{outline:2px solid var(--gold);outline-offset:4px;border-radius:4px;}
+body:not(.editing) .nav-logo::after{
+  content:'✏';font-size:10px;margin-left:6px;
+  opacity:0.4;font-family:sans-serif;
+  vertical-align:middle;
+}
+
 </style>
 </head>
 <body>
 
 <nav id="nav">
-  <div class="nav-logo">HOT <span>POTATO</span></div>
+  <div class="nav-logo" id="nav-logo" onclick="toggleEditMode()" title="✏ Click para editar" style="cursor:pointer;user-select:none;">HOT <span>POTATO</span></div>
   <div class="nav-dots" id="nav-dots"></div>
   <button class="burger" id="burger" onclick="toggleMenu()" aria-label="Menú"><span></span><span></span><span></span></button>
   <button id="nav-cta" class="nav-cta" onclick="toggleContactModal(true)">CONTACTAR →</button>
@@ -2345,83 +2355,63 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && editPanelOpe
 
 // ══ EDIT MODE ══════════════════════════════════════════════
 
-const EDITABLE_SELECTORS = [
-  // Titles & labels
-  '.lbl', '.lbl-light', '.ttl', '.ttl-w', '.hero-t', '.cta-ttl',
-  '.hero-ey', '.hero-sub',
-  // Cards and content
-  '.cc h3', '.cc p',
-  '.step strong', '.step span',
-  '.stat-l', '.stat-v',
-  '.comp-name', '.comp-detail',
-  '.mkt-desc',
-  '.chip',
-  '.diff strong', '.diff span',
-  '.uvp-q', '.uvp-e',
-  '.pc-tier', '.pc-inc', '.pc-net',
-  '.rev-bl',
-  '.ml-title', '.ml-sub',
-  '.mc-name', '.mc-role',
-  '.proof-title', '.proof-desc',
-  '.why-text strong', '.why-text span',
-  '.risk-title', '.risk-desc', '.mitigation-text',
-  '.rp-period', '.rp-title', '.rp-item',
-  '.roadmap-note',
-  '.be-label', '.be-val',
-  '.scenario-key', '.scenario-val',
-  '.funnel-title', '.funnel-desc',
-  '.rs-item-label', '.rs-item-val', '.rs-item-sub',
-  '.ct-title', '.ct-desc',
-  '.math-label', '.math-val',
-  '.insight-chip',
-  '.aw-chip',
-  '.team-desc',
-  '.award-row',
-  '.free-badge',
-  '.lc-uvpq', '.lc-body li',
-  '.lc-warn',
-  // CTA
-  '.ask-item-label', '.ask-item-val', '.ask-item-sub',
-  '.cta-sub',
-  // exec modal
-  '.exec-title', '.exec-sub', '.exec-stat-val', '.exec-stat-label', '.exec-pill',
-];
+// Selectors replaced by DOM walker
 
 let editMode = false;
 let saveTimer = null;
 
 function toggleEditMode() {
   editMode = !editMode;
-  const btn = document.getElementById('edit-toggle');
   const bar = document.getElementById('edit-bar');
+  const logo = document.getElementById('nav-logo');
   document.body.classList.toggle('editing', editMode);
-  btn.classList.toggle('active', editMode);
-  btn.textContent = editMode ? '✕ Salir' : '✏ Editar';
   bar.classList.toggle('visible', editMode);
-
-  if (editMode) {
-    tagEditables();
-    loadEdits();
-  }
+  if(logo) logo.title = editMode ? '✕ Click para salir de edición' : '✏ Click para editar';
+  // Just flip contenteditable — elements already tagged on load
+  document.querySelectorAll('[data-ed]').forEach(el => {
+    el.contentEditable = editMode ? 'true' : 'false';
+  });
 }
 
 function tagEditables() {
+  // Walk every element in sections + modals and tag anything with direct text
+  const SKIP = new Set(['SCRIPT','STYLE','NAV','VIDEO','IFRAME','INPUT','TEXTAREA','SELECT','BUTTON','svg','path']);
+  const SKIP_IDS = new Set(['edit-bar','lf-lightbox','awards-gallery','demo-modal','contact-modal','nav-overlay','exec-modal','lf-lightbox']);
+  const SKIP_CLASSES = ['nav-dot','burger','eb-btn','edit-toggle','gallery-close','modal-close','exec-btn-primary','exec-btn-secondary','lf-lb-nav','lf-lb-close','qr-float'];
+
   let idx = 0;
-  EDITABLE_SELECTORS.forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => {
-      if (!el.dataset.ed) {
-        el.dataset.ed = 'field-' + (idx++);
-      }
-      el.contentEditable = 'true';
+
+  function walk(el) {
+    if (!el || SKIP.has(el.tagName)) return;
+    if (el.id && SKIP_IDS.has(el.id)) return;
+    if (SKIP_CLASSES.some(c => el.classList && el.classList.contains(c))) return;
+
+    // Check if this element has meaningful direct text (not just whitespace)
+    const directText = Array.from(el.childNodes)
+      .filter(n => n.nodeType === 3) // text nodes
+      .map(n => n.textContent.trim())
+      .join('');
+
+    // Tag if: has direct text, OR is a known leaf container
+    const isLeaf = el.children.length === 0 && el.textContent.trim().length > 0;
+    const hasDirectText = directText.length > 2;
+
+    if ((isLeaf || hasDirectText) && !el.dataset.ed) {
+      el.dataset.ed = 'field-' + (idx++);
       el.spellcheck = false;
       el.addEventListener('input', () => scheduleAutoSave());
       el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault(); // prevent line breaks in single-line fields
-        }
+        if (e.key === 'Enter' && !e.shiftKey) e.preventDefault();
       });
-    });
-  });
+    }
+
+    // Recurse into children
+    Array.from(el.children).forEach(child => walk(child));
+  }
+
+  // Walk all sections + key containers
+  document.querySelectorAll('section, #exec-modal .exec-modal').forEach(el => walk(el));
+  console.log('[edit] Tagged ' + idx + ' editable fields');
 }
 
 function untagEditables() {
@@ -2498,13 +2488,15 @@ function exportClean() {
 
 // Auto-load saved edits on page load (outside edit mode, apply silently)
 window.addEventListener('load', () => {
-  // Small delay to let sections render
+  // Wait for JS sections to render, then tag everything once
   setTimeout(() => {
-    tagEditables();
-    loadEdits();
-    // Re-disable contenteditable (only enable in edit mode)
-    untagEditables();
-  }, 600);
+    tagEditables();   // assign data-ed to all editable elements
+    loadEdits();      // restore any saved edits from localStorage
+    // Leave contenteditable=false until user clicks to edit
+    document.querySelectorAll('[data-ed]').forEach(el => {
+      el.contentEditable = 'false';
+    });
+  }, 700);
 });
 // ══════════════════════════════════════════════════════════════
 </script>
@@ -2613,3 +2605,14 @@ window.addEventListener('load', () => {
     </div>
   </div>
 </div>
+<!-- EDIT BAR -->
+<div id="edit-bar">
+  <span class="eb-label">✏ Modo edición activo</span>
+  <div class="eb-sep"></div>
+  <button class="eb-btn eb-save" onclick="saveEdits()">💾 Guardar</button>
+  <button class="eb-btn eb-export" onclick="exportClean()">⬇ Descargar HTML</button>
+  <button class="eb-btn eb-reset" onclick="resetEdits()">↺ Resetear</button>
+  <span class="eb-status" id="eb-status">✓ Guardado</span>
+</div>
+</body>
+</html>
