@@ -1281,6 +1281,32 @@ body.editing [data-ed]:empty:before{
 }
 /* ════════════════════════════════════════════════════════════ */
 
+
+/* QR CODE */
+.qr-float{
+  position:fixed;bottom:24px;right:24px;z-index:400;
+  background:#1E1C18;border:1px solid rgba(201,164,40,.3);
+  border-radius:12px;padding:14px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  cursor:pointer;
+  transition:transform .2s,box-shadow .2s;
+}
+.qr-float:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.5);}
+.qr-float img{width:80px;height:80px;display:block;border-radius:4px;}
+.qr-float-label{font-family:'Space Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:rgba(237,232,223,.4);text-align:center;line-height:1.4;}
+.qr-float-url{font-family:'Space Mono',monospace;font-size:7px;color:var(--gold);text-align:center;word-break:break-all;max-width:80px;}
+
+/* QR in CTA section */
+.qr-cta-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:20px;}
+.qr-cta-wrap img{width:120px;height:120px;border-radius:8px;border:1px solid rgba(201,164,40,.2);}
+.qr-cta-label{font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(237,232,223,.35);}
+
+@media(max-width:768px){
+  .qr-float{bottom:80px;right:12px;padding:10px;}
+  .qr-float img{width:64px;height:64px;}
+}
+
 </style>
 </head>
 <body>
@@ -1914,6 +1940,10 @@ $('cta').innerHTML = `
   <div class="cta-buttons reveal d3">
     <button class="btn-p" onclick="toggleContactModal(true)">${cta.btn_primario}</button>
     <a href="mailto:${D.studio.email}?subject=Hot Potato - Demo" class="btn-s">${cta.btn_secundario}</a>
+  </div>
+  <div class="qr-cta-wrap reveal d4">
+    <img src="data:image/png;base64,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" alt="QR Hot Potato Pitch">
+    <div class="qr-cta-label">pilarmpr.github.io/HotPotatoPitch</div>
   </div>
   <div class="contact-row reveal d4">
     <a href="mailto:${D.studio.email}" class="contact-item">✉ ${D.studio.email}</a>
@@ -2573,6 +2603,13 @@ window.addEventListener('load', () => {
     <div class="exec-actions">
       <button class="exec-btn-primary" onclick="closeExec('pitch')">VER EL PITCH COMPLETO →</button>
       <button class="exec-btn-secondary" onclick="closeExec('contact')">SOLICITAR DATA ROOM</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);">
+      <img src="data:image/png;base64,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" alt="QR" style="width:72px;height:72px;border-radius:6px;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:rgba(237,232,223,.4);margin-bottom:4px;">Escanea para abrir en móvil</div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-l);">pilarmpr.github.io/HotPotatoPitch</div>
+      </div>
     </div>
   </div>
 </div>
